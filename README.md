@@ -8,3 +8,5 @@
 第3章 03 nlp2sql
 第4章 多轮对话 可以看看，api还能用
 第5章（重点） 工具
+
+第8章 mcp multiagentlanggraph还没跑通
