@@ -3,7 +3,7 @@
  日期 2025/10/31
  MCP旅游攻略系统 - 集成高德地图API
  环境：conda环境tellme，使用dotenv管理API密钥
- 
+ 未完成
  功能：
  - 高德地图POI搜索
  - 路线规划
@@ -31,24 +31,12 @@ os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY1")
 os.environ['OPENAI_BASE_URL'] = os.getenv("OPENAI_BASE_URL")
 
 # 高德地图API密钥（需要在.env中配置）
-AMAP_API_KEY = os.getenv("AMAP_API_KEY", "your_amap_api_key")
+AMAP_API_KEY = os.getenv("AMAP_API_KEY")
 
 
 # ==================== MCP工具定义 ====================
-
-@tool
-def search_poi(city: str, keyword: str, poi_type: str = "") -> str:
-    """
-    搜索城市中的POI（兴趣点）
-    
-    参数:
-        city: 城市名称，如"北京"、"上海"
-        keyword: 搜索关键词，如"景点"、"美食"、"酒店"
-        poi_type: POI类型，如"旅游景点"、"餐饮服务"、"住宿服务"
-    
-    返回:
-        POI信息列表的JSON字符串
-    """
+def _search_poi_internal(city: str,keyword: str,poi_type: str = "") -> str:
+    """内部POI搜索函数（不是工具）"""
     try:
         url = "https://restapi.amap.com/v3/place/text"
         params = {
@@ -59,41 +47,44 @@ def search_poi(city: str, keyword: str, poi_type: str = "") -> str:
             "offset": 10,
             "extensions": "all"
         }
-        
-        response = requests.get(url, params=params, timeout=10)
+
+        response = requests.get(url,params=params,timeout=10)
         data = response.json()
-        
+
         if data['status'] == '1' and data['pois']:
             pois = []
-            for poi in data['pois'][:5]:  # 只返回前5个结果
+            for poi in data['pois'][:5]:
                 pois.append({
-                    "名称": poi.get('name', ''),
-                    "地址": poi.get('address', ''),
-                    "类型": poi.get('type', ''),
-                    "评分": poi.get('biz_ext', {}).get('rating', '暂无'),
-                    "位置": poi.get('location', ''),
-                    "电话": poi.get('tel', '暂无')
+                    "名称": poi.get('name',''),
+                    "地址": poi.get('address',''),
+                    "类型": poi.get('type',''),
+                    "评分": poi.get('biz_ext',{}).get('rating','暂无'),
+                    "位置": poi.get('location',''),
+                    "电话": poi.get('tel','暂无')
                 })
-            return json.dumps(pois, ensure_ascii=False, indent=2)
+            return json.dumps(pois,ensure_ascii=False,indent=2)
         else:
-            return f"未找到相关POI，可能原因：API密钥无效或查询参数错误"
-            
-    except Exception as e:
-        return f"POI搜索出错: {str(e)}\n提示：请在.env中配置AMAP_API_KEY（访问https://lbs.amap.com/获取）"
+            return f"未找到相关POI"
 
+    except Exception as e:
+        return f"POI搜索出错: {str(e)}"
+@tool
+def search_poi(city: str, keyword: str, poi_type: str = "") -> str:
+    """搜索城市中的POI（兴趣点）"""
+    return _search_poi_internal(city, keyword, poi_type)
 
 @tool
 def get_route(origin_city: str, origin_poi: str, dest_city: str, dest_poi: str, mode: str = "公交") -> str:
     """
     查询两地之间的路线
-    
+
     参数:
         origin_city: 出发城市
         origin_poi: 出发地点
         dest_city: 目的地城市
         dest_poi: 目的地点
         mode: 出行方式，可选"驾车"、"公交"、"步行"
-    
+
     返回:
         路线信息
     """
@@ -107,9 +98,9 @@ def get_route(origin_city: str, origin_poi: str, dest_city: str, dest_poi: str, 
             "预计距离": "约50公里",
             "建议": f"建议选择{mode}出行，路线顺畅"
         }
-        
+
         return json.dumps(route_info, ensure_ascii=False, indent=2)
-        
+
     except Exception as e:
         return f"路线规划出错: {str(e)}"
 
@@ -118,10 +109,10 @@ def get_route(origin_city: str, origin_poi: str, dest_city: str, dest_poi: str, 
 def get_weather(city: str) -> str:
     """
     查询城市天气
-    
+
     参数:
         city: 城市名称
-    
+
     返回:
         天气信息
     """
@@ -132,10 +123,10 @@ def get_weather(city: str) -> str:
             "city": city,
             "extensions": "all"  # 返回未来3天预报
         }
-        
+
         response = requests.get(url, params=params, timeout=10)
         data = response.json()
-        
+
         if data['status'] == '1' and data.get('forecasts'):
             forecast = data['forecasts'][0]
             weather_info = {
@@ -143,7 +134,7 @@ def get_weather(city: str) -> str:
                 "发布时间": forecast['reporttime'],
                 "未来天气": []
             }
-            
+
             for cast in forecast['casts'][:3]:
                 weather_info["未来天气"].append({
                     "日期": cast['date'],
@@ -153,56 +144,33 @@ def get_weather(city: str) -> str:
                     "夜间温度": cast['nighttemp'] + "°C",
                     "风向": cast['daywind']
                 })
-            
+
             return json.dumps(weather_info, ensure_ascii=False, indent=2)
         else:
             return f"天气查询失败，可能原因：城市名称错误或API密钥无效"
-            
+
     except Exception as e:
         return f"天气查询出错: {str(e)}"
 
 
 @tool
 def search_restaurant(city: str, cuisine_type: str = "", location: str = "") -> str:
-    """
-    搜索餐厅和美食
-    
-    参数:
-        city: 城市名称
-        cuisine_type: 菜系类型，如"川菜"、"粤菜"、"西餐"
-        location: 位置限定，如"市中心"、"火车站附近"
-    
-    返回:
-        餐厅信息列表
-    """
+    """搜索餐厅和美食"""
     keyword = f"{cuisine_type}餐厅" if cuisine_type else "美食"
     if location:
         keyword += f" {location}"
-    
-    return search_poi(city, keyword, "餐饮服务")
+    return _search_poi_internal(city, keyword, "餐饮服务")
 
 
 @tool
 def search_hotel(city: str, area: str = "", price_range: str = "") -> str:
-    """
-    搜索酒店
-    
-    参数:
-        city: 城市名称
-        area: 区域，如"市中心"、"火车站"
-        price_range: 价格范围，如"经济型"、"豪华型"
-    
-    返回:
-        酒店信息列表
-    """
+    """搜索酒店"""
     keyword = "酒店"
     if area:
         keyword += f" {area}"
     if price_range:
         keyword += f" {price_range}"
-    
-    return search_poi(city, keyword, "住宿服务")
-
+    return _search_poi_internal(city, keyword, "住宿服务")
 
 # ==================== 智能体定义 ====================
 
@@ -448,13 +416,7 @@ async def main():
     print("  ✅ 路线智能规划")
     print("  ✅ 多智能体协同")
     print("\n" + "="*80)
-    
-    # 检查API密钥
-    if AMAP_API_KEY == "your_amap_api_key":
-        print("\n⚠️  警告：未配置高德地图API密钥")
-        print("   请在.env文件中添加: AMAP_API_KEY=your_key")
-        print("   获取密钥：https://lbs.amap.com/\n")
-        print("   系统将以演示模式运行（返回模拟数据）\n")
+
     
     try:
         planner = MCPTravelPlanner()
