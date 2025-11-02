@@ -3,3 +3,10 @@
 .idea
 chapter07-RAG/asset/chroma*/
 
+
+.DS_Store
+.venv
+__pycache__
+*.pyc
+.ipynb_checkpoints
+/chapter08-A2A/使用Python构建RAG系统/rag/chroma_db/
