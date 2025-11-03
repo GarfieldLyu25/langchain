@@ -28,8 +28,9 @@ class ReActAgent:
             {"role": "system", "content": self.render_system_prompt(react_system_prompt_template)},
             {"role": "user", "content": f"<question>{user_input}</question>"}
         ]
-
-        while True:
+        MAX_ITERATIONS = 10
+        iteration = 0
+        while iteration < MAX_ITERATIONS:
 
             # 请求模型
             content = self.call_model(messages)
@@ -64,9 +65,11 @@ class ReActAgent:
             except Exception as e:
                 observation = f"工具执行错误：{str(e)}"
             print(f"\n\n🔍 Observation：{observation}")
+            # 用户确认后才保存
+            messages.append({"role": "assistant","content": content})
             obs_msg = f"<observation>{observation}</observation>"
             messages.append({"role": "user", "content": obs_msg})
-
+            iteration += 1
 
     def get_tool_list(self) -> str:
         """生成工具列表字符串，包含函数签名和简要说明"""
@@ -107,7 +110,7 @@ class ReActAgent:
             messages=messages,
         )
         content = response.choices[0].message.content
-        messages.append({"role": "assistant", "content": content})
+        # messages.append({"role": "assistant", "content": content})
         return content
 
     def parse_action(self, code_str: str) -> Tuple[str, List[str]]:
